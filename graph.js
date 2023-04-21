@@ -219,15 +219,22 @@ function randomGraph(sizeOrEdgeList, width, density, seed) {
 }
 
 // TODO hand code shortest paths for a full grid
-function gridGraph(n, density=1, folded=false) {
-  const size = n*n
+/**
+ * 
+ * @param {number} n number of nodes on side 
+ * @param {number} density percentage of edges present (minimum being n*n-1)
+ * @param {string} shape "folded", "torus", or ""
+ * @returns {Graph}
+ */
+function gridGraph(n,m, density=1, shape) {
+  const size = n*m
   const fullGrid = new Graph()
 
-  const label = (i,j) => i*n + j
+  const label = (i,j) => i*m + j
   const layout = (i,j) => vec(i,j)
 
   for (const i of d3.range(n))
-  for (const j of d3.range(n)) {
+  for (const j of d3.range(m)) {
     const label1 = label(i,j)
     fullGrid.addNode(label1)
     fullGrid.node(label1).pos = layout(i,j)
@@ -253,7 +260,7 @@ function gridGraph(n, density=1, folded=false) {
   }
 
   let numDesiredEdges = Math.floor(
-    d3.scaleLinear().domain([0,1]).range([size-1, (n-1)*n*2])(density)
+    d3.scaleLinear().domain([0,1]).range([size-1, 2*m*n - m - n])(density)
   )
   let numEdges = sparseGraph.size-1
   let edgePool = fullGrid.edgeList().filter(([u,v]) => !sparseGraph.neighbors(u,v))
@@ -269,11 +276,16 @@ function gridGraph(n, density=1, folded=false) {
     node.pos = fullGrid.node(node.label).pos
 
   // if this is a folded mesh then connect opposite corners
-  if (folded) {
-    sparseGraph.addEdge(label(0,0), label(n-1,n-1))
-    sparseGraph.addEdge(label(n-1,0), label(0,n-1))
+  if (shape == "folded") {
+    sparseGraph.addEdge(label(0,0), label(n-1,m-1))
+    sparseGraph.addEdge(label(n-1,0), label(0,m-1))
   }
-  
+
+  // if making a torus, connect up opposite sides
+  if (shape == "torus") {
+    for (const i of d3.range(n)) sparseGraph.addEdge(label(i,0), label(i,m-1))
+    for (const j of d3.range(m)) sparseGraph.addEdge(label(0,j), label(n-1,j))
+  }
 
   return sparseGraph
 }

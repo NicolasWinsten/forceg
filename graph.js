@@ -221,11 +221,10 @@ function randomGraph(sizeOrEdgeList, width, density, seed) {
 // TODO hand code shortest paths for a full grid
 function gridGraph(n, density=1, folded=false) {
   const size = n*n
-  console.log("size", size)
   const fullGrid = new Graph()
 
   const label = (i,j) => i*n + j
-  const layout = (i,j) => vec(i*10,j*10)
+  const layout = (i,j) => vec(i,j)
 
   for (const i of d3.range(n))
   for (const j of d3.range(n)) {
@@ -256,12 +255,10 @@ function gridGraph(n, density=1, folded=false) {
   let numDesiredEdges = Math.floor(
     d3.scaleLinear().domain([0,1]).range([size-1, (n-1)*n*2])(density)
   )
-  console.log("possible edges", (n-1)*n*2, "desired edges", numDesiredEdges)
   let numEdges = sparseGraph.size-1
   let edgePool = fullGrid.edgeList().filter(([u,v]) => !sparseGraph.neighbors(u,v))
   while (numEdges < numDesiredEdges) {
     let edge = randItem(edgePool)
-    console.log(numEdges, numDesiredEdges,edgePool)
     edgePool.splice(edgePool.indexOf(edge), 1)
     sparseGraph.addEdge(...edge)
     numEdges++
@@ -280,6 +277,29 @@ function gridGraph(n, density=1, folded=false) {
 
   return sparseGraph
 }
+
+function tree(degree, maxDepth) {
+  let nodeCount = 0
+  const tree = new Graph()
+
+  let mkNodes = (nodeNum, depth) => {
+    if (depth >= maxDepth) return
+    const node = tree.node(nodeNum)
+    
+    for (let i = 0; i < degree; i++) {
+      const label = ++nodeCount
+      tree.addNode(label)
+      tree.addEdge(label, node.label)
+      tree.node(label).pos = add(node.pos, vec(sample(0,0.5), 1))
+      mkNodes(label, depth+1)
+    }
+  }
+
+  tree.addNode(nodeCount)
+  mkNodes(nodeCount, 0)
+  return tree
+}
+
 
 /**
  * 

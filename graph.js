@@ -10,7 +10,7 @@ class Graph {
   #dist
 
   // todo make graph.nodes an object mapping labels to nodes
-  constructor(n) {
+  constructor(n=0) {
     this.size = 0
     for (let i = 0; i < n; i++) this.addNode(i)
   }
@@ -77,20 +77,25 @@ class Graph {
     return newGraph
   }
 
-  /* subgraph(nodeSubset) {
-    let sg = new Graph(0)
-    nodeSubset.forEach(n => {
-      const node = this.node(n)
-      if (node === undefined) throw `node labeled ${n} does not exist`
-      sg.#insertNode(node)
-    })
+  /**
+   * 
+   * @param {*} u node label
+   * @param {*} v node label
+   * @return {boolean} true if v is reachable from u 
+   */
+/*   reaches(u,v) {
+    const visited = new Set()
 
-    for (const node of nodeSubset)
-    for (const neighbor of this.neighborsOf(node))
-    if (nodeSubset.includes(neighbor) && !sg.neighbors(node,neighbor))
-    sg.addEdge(node,neighbor)
-    
-    return sg
+    let search = (curNode) => {
+      if (curNode == v) return true
+      visited.add(curNode)
+      for (const neighbor of this.neighborsOf(curNode))
+      if (!visited.has(neighbor))
+      if (search(neighbor)) return true
+      return false
+    }
+
+    return search(u)
   } */
 
   // return the number of edge crossings in this graph's layout
@@ -114,6 +119,12 @@ class Graph {
     this.#shortestPathsComputed = true
   }
 
+  /**
+   * 
+   * @param {*} u node label
+   * @param {*} v node label
+   * @returns graph theoretic distance between nodes
+   */
   dist(u,v) {
     if (!this.#shortestPathsComputed) this.computeDistances()
     return this.#dist[u][v]
@@ -205,6 +216,79 @@ function randomGraph(sizeOrEdgeList, width, density, seed) {
     }
     return graph
   }
+}
+
+// TODO hand code shortest paths for a full grid
+function gridGraph(n, density=1, folded=false) {
+  const size = n*n
+  console.log("size", size)
+  const fullGrid = new Graph()
+
+  const label = (i,j) => i*n + j
+  const layout = (i,j) => vec(i*10,j*10)
+
+  for (const i of d3.range(n))
+  for (const j of d3.range(n)) {
+    const label1 = label(i,j)
+    fullGrid.addNode(label1)
+    fullGrid.node(label1).pos = layout(i,j)
+
+    if (i > 0) fullGrid.addEdge(label1, label(i-1,j))
+    if (j > 0) fullGrid.addEdge(label1, label(i,j-1))
+  }
+
+  const nodes = fullGrid.nodeList()
+  const sparseGraph = new Graph()
+  // initialize graph with random node
+  sparseGraph.addNode(randItem(nodes).label)
+  let getRandomNode = () => randItem(sparseGraph.nodeList()).label
+  while (sparseGraph.size < size) {
+    let node = getRandomNode()
+    let possibleNeighbors = [...fullGrid.neighborsOf(node)]
+      .filter(u => sparseGraph.node(u) === undefined)
+    if (possibleNeighbors.length > 0) {
+      const newNeighbor = randItem(possibleNeighbors)
+      sparseGraph.addNode(newNeighbor)
+      sparseGraph.addEdge(node, newNeighbor)
+    }
+  }
+
+  let numDesiredEdges = Math.floor(
+    d3.scaleLinear().domain([0,1]).range([size-1, (n-1)*n*2])(density)
+  )
+  console.log("possible edges", (n-1)*n*2, "desired edges", numDesiredEdges)
+  let numEdges = sparseGraph.size-1
+  let edgePool = fullGrid.edgeList().filter(([u,v]) => !sparseGraph.neighbors(u,v))
+  while (numEdges < numDesiredEdges) {
+    let edge = randItem(edgePool)
+    console.log(numEdges, numDesiredEdges,edgePool)
+    edgePool.splice(edgePool.indexOf(edge), 1)
+    sparseGraph.addEdge(...edge)
+    numEdges++
+  }
+
+  // reassign corrrect layout
+  for (const node of sparseGraph.nodeList())
+    node.pos = fullGrid.node(node.label).pos
+
+  // if this is a folded mesh then connect opposite corners
+  if (folded) {
+    sparseGraph.addEdge(label(0,0), label(n-1,n-1))
+    sparseGraph.addEdge(label(n-1,0), label(0,n-1))
+  }
+  
+
+  return sparseGraph
+}
+
+/**
+ * 
+ * @param {Graph} graph graph to layout
+ * @param {number} width width of square to randomly place node in
+ */
+function assignRandomLayout(graph, width) {
+  for (const node of graph.nodeList())
+    node.pos = randomPosition(width)
 }
 
 /**

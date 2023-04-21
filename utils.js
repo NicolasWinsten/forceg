@@ -127,3 +127,11 @@ Array.prototype.maxBy = function(f) {
 Array.prototype.minBy = function(f) {
   return minMaxBy(this,f,(a,b)=>a<b)
 }
+
+
+function sample(mean, stdv=1) {
+  const u = Math.random()
+  const v = Math.random()
+  const sample = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
+  return sample*stdv + mean
+}

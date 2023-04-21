@@ -18,8 +18,8 @@ class KamadaKawai {
       if (i == j) return {strength:0,length:0}
 
       const graphTheoreticDistance = this.graph.dist(i,j)
-      const length = graphTheoreticDistance*100
-      const strength = this.k / (graphTheoreticDistance**2)
+      const length = graphTheoreticDistance
+      const strength = 1/ (graphTheoreticDistance**2)
 
       return {strength:strength, length:length}
     })
@@ -93,7 +93,6 @@ class KamadaKawai {
     while (true) {
       this.computeNextPosition(node)
       let e = this.computeEnergy(node)
-
       if (e <= this.energyThreshold || iters++ >= this.maxVertexIters) break
     }
   }
@@ -101,12 +100,13 @@ class KamadaKawai {
   constructor(graph) {
     this.graph = graph
     this.nodes = graph.nodeList()
-    this.energyThreshold = 5000
+    this.energyThreshold = 1e-5
+    this.stableThreshold = 1e-2
     this.stableCount = 0
     this.stableCountThreshold = 5
     this.previousMaxEnergy = Number.MAX_VALUE
-    this.maxVertexIters = 100
-    this.k = 10000
+    this.maxVertexIters = 10 // maximum number of iterations to refine layout of one node
+    //this.k = 10000
     this.springs = this.modelSprings()
     this.discriminator = (u,v)=>true  // function to determine if node v should be considered when computing the energy of node u
     this.finished = false
@@ -120,7 +120,7 @@ class KamadaKawai {
     let {node:maxEnergyNode,energy:maxEnergy} = this.highestEnergyVertex()
     // find the highest energy vertex    
 
-    if (Math.abs(maxEnergy - this.previousMaxEnergy) < 1) this.stableCount++
+    if (Math.abs(maxEnergy - this.previousMaxEnergy) < this.stableThreshold) this.stableCount++
     else this.stableCount = 0
 
     if (maxEnergy <= this.energyThreshold || this.stableCount >= this.stableCountThreshold) this.finished = true

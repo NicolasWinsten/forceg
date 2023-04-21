@@ -30,7 +30,7 @@ class HarelKoren {
     this.localRadius = 7  // radius of local neighborhoods
     this.iterations = 5   // iterations to run the local layout refiner on each stage
     this.coarseRate = 3   // ratio of supernodes between each stage
-    this.minGranularity = 10 // initial number of supernodes
+    this.minGranularity = Math.min(10, graph.size) // initial number of supernodes
     this.numSuperNodes = this.minGranularity // current number of supernodes
     this.finished = false
     this.kamada = new KamadaKawai(this.graph)

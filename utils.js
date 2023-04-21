@@ -88,6 +88,15 @@ function matrix(indices, fill) {
   return rows
 }
 
+/**
+ * 
+ * @param {*[]} arr array
+ * @returns random item from the array
+ */
+function randItem(arr) {
+  return arr[Math.floor(Math.random()*arr.length)]
+}
+
 // return the given value clamped between two bounds
 function clamp(val, min, max) {
   return val < min ? min : (val > max ? max : val)

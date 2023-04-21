@@ -11,19 +11,6 @@
  */
 class HarelKoren {
 
-  // use kamada kawai heuristic to improve the position of the given list of nodes.
-  // compute kamada energy function only using the given list of nodes and for only a local neighborhood within some radius
-  layoutLocal (centers, radius) {
-    let centerSet = new Set(centers)
-    // only consider the other nearby centers when computing energy of a center
-    this.kamada.discriminator = (u,v) => centerSet.has(v) && this.graph.dist(u.label,v.label) <= radius
-
-    for (let i = 0; i < centers.length*this.iterations; i++) {
-      const maximalLocalEnergyNode = centers.maxBy(u => this.kamada.computeEnergy(u))
-      this.kamada.moveNode(maximalLocalEnergyNode)
-    }
-  }
-
   constructor(graph) {
     this.graph = graph
     this.nodes = this.graph.nodeList()
@@ -34,35 +21,60 @@ class HarelKoren {
     this.numSuperNodes = this.minGranularity // current number of supernodes
     this.finished = false
     this.kamada = new KamadaKawai(this.graph)
-    this.kamada.energyThreshold = 10
+    this.noise = 0.1
+    //this.kamada.energyThreshold = 5000
+
+    this.i = 0
+
+    this.stepper = this.newPhase()
   }
 
-  step() {
-    if (this.numSuperNodes == this.graph.size) {
-      this.finished = true
-    }
-
+  // construct a closure for the next current phase
+  newPhase() {
     // choose the supernodes
     const centers = kcenters(this.graph, this.numSuperNodes)
     // find the center with the largest minimum distance to another center
-    // multiply it by the base radius to determine the size of the supernode's neighborhood
+    // multiply it by the base radius to determine the size of the supernode's neighborhood for the phase
     const radius = centers
       .map(u => centers.filter(v => u!=v).map(v => this.graph.dist(u.label,v.label)).minBy(x=>x))
       .maxBy(x=>x)*this.localRadius
 
-    // use KamadaKawai heuristic to compute good positions for supernodes
-    this.layoutLocal(centers, radius)
+    const centerSet = new Set(centers)
+    // only consider the other nearby centers when computing energy of a center
+    this.kamada.discriminator = (u,v) => centerSet.has(v) && this.graph.dist(u.label,v.label) <= radius
 
-    let centerSet = new Set(centers)
-    // move every node to its corresponding supernode
-    if (this.numSuperNodes != this.graph.size) {
-      for (const v of this.nodes)
-      if (!centerSet.has(v)) {
-        v.pos = centers.minBy(c => this.graph.dist(c.label,v.label)).pos
-        v.pos = add(v.pos, randomPosition(10))
+    let i = this.numSuperNodes*this.iterations
+    const iterator = () => {
+      // use kamada kawai heuristic to improve the position of the given list of nodes.
+      // compute kamada energy function only using the given list of nodes and for only a local neighborhood within some radius
+      const maximalLocalEnergyNode = centers.maxBy(u => this.kamada.computeEnergy(u))
+      this.kamada.moveNode(maximalLocalEnergyNode)
+      if (--i == 0) { // if the phase has ended
+        // move every node to its corresponding supernode
+        if (this.numSuperNodes != this.graph.size) {
+          for (const v of this.nodes)
+          if (!centerSet.has(v)) {
+            v.pos = centers.minBy(c => this.graph.dist(c.label,v.label)).pos
+            v.pos = add(v.pos, randomPosition(this.noise))
+          }
+        }
+        return false
+      } else return true
+    }
+
+    return iterator
+  }
+
+  step() {
+    let isPhaseFinished = !this.stepper()
+    if (isPhaseFinished) {
+      if (this.numSuperNodes == this.graph.size) {
+        this.finished = true
+      }
+      else {
+        this.numSuperNodes = Math.min(this.graph.size,this.coarseRate*this.numSuperNodes)
+        this.stepper = this.newPhase()
       }
     }
-    
-    this.numSuperNodes = Math.min(this.graph.size,this.coarseRate*this.numSuperNodes)
   }
 }

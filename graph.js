@@ -77,6 +77,12 @@ class Graph {
     return newGraph
   }
 
+  diam() {
+    const nodes = this.nodeList().map(n=>n.label)
+    return nodes.map(u => nodes.maxBy(v => this.#dist(u,v)))
+      .maxBy(x=>x)
+  }
+
   /**
    * 
    * @param {*} u node label
@@ -221,7 +227,8 @@ function randomGraph(sizeOrEdgeList, width, density, seed) {
 // TODO hand code shortest paths for a full grid
 /**
  * 
- * @param {number} n number of nodes on side 
+ * @param {number} n width
+ * @param {number} m height
  * @param {number} density percentage of edges present (minimum being n*n-1)
  * @param {string} shape "folded", "torus", or ""
  * @returns {Graph}
@@ -312,13 +319,56 @@ function tree(degree, maxDepth) {
   return tree
 }
 
+function clusterGraph(numClusters, avgSize, connectedness) {
+  let graph = new Graph()
+
+  let clusters = [] // array of arrays of cluster nodes
+
+  // create nodes for each cluster, connect them all, position them together
+  for (let i = 0; i < numClusters; i++) {
+    let labels = d3.range(graph.size, graph.size+avgSize)
+    let clusterPos = randomPosition(numClusters)
+    clusters.push(labels)
+    labels.forEach(l => {
+      graph.addNode(l)
+      graph.node(l).pos = add(clusterPos, randomPosition(1))
+    })
+    labels.forEachPair((u,v) => graph.addEdge(u,v))
+  }
+
+  // add minimum number of edges to create connected graph
+  let clusterPool = clusters.toSorted(() => (Math.random() > .5) ? 1 : -1)
+  let connectedClusters = [clusterPool.pop()]
+  while (clusterPool.length > 0) {
+    const cluster = clusterPool.pop()
+    const otherCluster = randItem(connectedClusters)
+    let node1 = randItem(cluster)
+    let node2 = randItem(otherCluster)
+    graph.addEdge(node1,node2)
+    connectedClusters.push(cluster)
+  }
+
+  // for each connectedness draw a random edge between each cluster per cluster
+  for (const cluster of clusters)
+  for (const _ of d3.range(connectedness)) {
+    let otherCluster = randItem(clusters)
+    while (cluster == otherCluster) otherCluster = randItem(clusters)
+
+    const node1 = randItem(cluster)
+    const node2 = randItem(otherCluster)
+    if (!graph.neighbors(node1,node2)) graph.addEdge(node1,node2)
+  }
+  
+  return graph
+}
+
 
 /**
  * 
  * @param {Graph} graph graph to layout
  * @param {number} width width of square to randomly place node in
  */
-function assignRandomLayout(graph, width) {
+function assignRandomLayout(graph, width=graph.size) {
   for (const node of graph.nodeList())
     node.pos = randomPosition(width)
 }

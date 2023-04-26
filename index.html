@@ -4,27 +4,35 @@
     <meta charset="UTF-8"/>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+    <script src="graphology-library.min.js"></script>
+    <script src="graphology.min.js"></script>
     <style>
-
+      
     </style>
   </head>
   <body>
-    <div>
-      <div id="n-label">Number of vertices: 30</div>
-      <input id="n-slider" type="range" min="2" max="500" value="30">
+    
 
+    <h3>Algorithms</h3>
+    <div id="algo-buttons"></div>
+    <div>
       <button id="play-button">Play</button>
       <button id="step-button">Step</button>
       <button id="stop-button">Stop</button>
       <button id="reset-button">Reset</button>
+      <button id="label-button">Toggle labels</button>
     </div>
 
-
+    
   </body>
   <script src="utils.js"></script>
   <script src="graph.js"></script>
+  <script src="algo.js"></script>
   <script src="eades.js"></script>
   <script src="kamada.js"></script>
+  <script src="priorityqueue.js"></script>
   <script src="harelkoren.js"></script>
+  <script src="ui.js"></script>
   <script src="draw.js"></script>
+  
 </html>

@@ -88,6 +88,12 @@ function matrix(indices, fill) {
   return rows
 }
 
+function forEachPair(arr, func) {
+  for (let i = 0; i < arr.length; i++)
+  for (let j = i+1; j < arr.length; j++)
+  func(arr[i],arr[j])
+}
+
 /**
  * 
  * @param {*[]} arr array
@@ -126,6 +132,15 @@ Array.prototype.maxBy = function(f) {
 
 Array.prototype.minBy = function(f) {
   return minMaxBy(this,f,(a,b)=>a<b)
+}
+
+Array.prototype.remove = function(e) {
+  const i = this.indexOf(e)
+  if (i != -1) this.splice(i,1)
+}
+
+Array.prototype.forEachPair = function(func) {
+  forEachPair(this, func)
 }
 
 

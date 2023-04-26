@@ -4,33 +4,34 @@
  * @param {function} nodePairForce function from a node pair to the force between them  
  * @param {number} maxForce maximum force magnitude that can be applied 
  */
-function applyForces(graph, nodePairForce, maxForce) {
-  const nodes = graph.nodeList()
+function applyForces(particles, nodePairForce, maxForce) {
   const forces = {}
-  nodes.forEach(n => forces[n.label] = vec(0,0))
+  particles.forEach(n => forces[n.label] = vec(0,0))
 
+  particles.forEachPair((n1,n2) => {
+    let f = nodePairForce(n1,n2)
+    //let f_ = nodePairForce(n2,n1)
 
-  for (let i = 0; i < graph.size; i++)
-  for (let j = i+1; j < graph.size; j++) {
-    const n1 = nodes[i]
-    const n2 = nodes[j]
-    const f = nodePairForce(n1,n2)
+    //updateParticle(n1,f,dt)
+    //updateParticle(n2,mult(f,-1),dt)
+
     forces[n1.label] = add(forces[n1.label], f)
     forces[n2.label] = subtract(forces[n2.label], f)
-  }
+  })
 
-  // apply forces to node positions
-  for (const node of nodes) {
-    let f = forces[node.label]
+  particles.forEach(n => {
+    let f = forces[n.label]
 
+    //f = subtract(f, mult(n.vel, 0.05*magnitude(n.vel)**2))
+    // clamp force
     const mag = magnitude(f)
     if (mag > maxForce)
       f = mult(f, maxForce/mag)
 
-    node.pos = add(node.pos, f)
-  }
 
-  return forces
+    // updateParticle(n,f,dt)
+    n.pos = add(n.pos, f)
+  })
 }
 
 
@@ -42,7 +43,7 @@ function applyForces(graph, nodePairForce, maxForce) {
  * Every node pair exhibits a repulsive force
  * 
  */
-class Eades {
+class Eades extends Algo {
   static computeRepulsionForce(pos1, pos2, c2) {
     const dist_ = dist(pos1, pos2)
     const repulsion = c2 / (dist_**2)
@@ -58,14 +59,12 @@ class Eades {
   }
 
   constructor(graph) {
-    this.graph = graph
-    this.dampening = 0.15
-    this.springLength = 100
-    this.charge = 150*150
-    this.charge2 = this.charge**2
-    this.maxForce = 100*Math.sqrt(graph.size)
+    super(graph)
+    this.dampening = 0.06
+    this.springLength = 1
+    this.charge = 5
+    this.maxForce = 20*Math.sqrt(graph.size)
     this.iterations = graph.size*10
-    this.finished = false
   }
 
   nodePairForce(node1,node2) {
@@ -74,14 +73,24 @@ class Eades {
     if (this.graph.neighbors(node1.label,node2.label))
       return Eades.computeSpringForce(pos1,pos2,this.springLength,this.dampening)
     else
-      return Eades.computeRepulsionForce(pos1,pos2,this.charge2)
+      return Eades.computeRepulsionForce(pos1,pos2,this.charge**2)
   }
 
   step() {
     if (this.finished) throw `Iterator finished`
-    applyForces(this.graph, this.nodePairForce.bind(this), this.maxForce)
+    applyForces(this.nodes, this.nodePairForce.bind(this), this.maxForce)
     this.finished = --this.iterations == 0
   }
+
+  reset() {
+    super.reset()
+    this.iterations = this.graph.size*10
+  }
+
+  setGraph(graph) {
+    super.setGraph(graph)
+    this.maxForce = 20*Math.sqrt(graph.size)
+  } 
 
 }
 
@@ -96,42 +105,114 @@ class Eades {
  * 
  * Fruchterman, Thomas MJ, and Edward M. Reingold. "Graph drawing by force‐directed placement." (1991)
  */
-class FruchReingold {
-  static computeAttractiveForce(pos1, pos2, c) {
+class FruchReingold extends Algo {
+  computeAttractiveForce(pos1, pos2) {
     const delta = subtract(pos2, pos1)
     const dist_ = dist(pos1, pos2)
-    const attraction = dist_ / c
+    const attraction = dist_ / this.k
     return mult(delta, attraction)
+  }
+
+  computeRepulsionForce(pos1,pos2) {
+    const delta = subtract(pos1, pos2)
+    const dist_ = magnitude(delta)
+    const force = this.temp*this.k*this.k / dist_**2
+    return mult(delta,force)
   }
   
 
   constructor(graph) {
-    this.graph = graph
-    this.charge = 150*150
-    this.charge2 = this.charge**2
+    super(graph)
+    this.k = 300
     this.maxForce = 250 * Math.sqrt(graph.size)
-    this.cool = (250 * Math.sqrt(graph.size))/(graph.size*10)
-    this.minTemp = 1
+    this.temp = this.maxForce
+    this.cool = 0.98
+    this.minTemp = 50*Math.sqrt(graph.size)
     this.iterations = graph.size*10
   }
 
   nodePairForce(node1,node2) {
     const pos1 = node1.pos
     const pos2 = node2.pos
-    const repulsion = Eades.computeRepulsionForce(pos1,pos2,this.charge2)
+    let force = this.computeRepulsionForce(pos1,pos2)
     if (this.graph.neighbors(node1.label,node2.label))
-      return add(repulsion, FruchReingold.computeAttractiveForce(pos1,pos2,this.charge))
-    else
-      return repulsion
+      force = add(force, this.computeAttractiveForce(pos1,pos2))
+
+    return force // todo add speed modifier
   }
 
   step() {
     if (this.finished) throw `Iterator finished`
-    applyForces(this.graph, this.nodePairForce.bind(this), this.maxForce)
-    this.maxForce -= this.cool
-    this.maxForce = Math.max(this.maxForce, this.minTemp)
+    applyForces(this.nodes, this.nodePairForce.bind(this), this.temp)
+    this.temp *= this.cool
+    this.temp = Math.max(this.temp, this.minTemp)
     this.finished = --this.iterations == 0
+  }
+
+  reset() {
+    super.reset()
+    this.temp = this.maxForce
+    this.iterations = this.graph.size*10
+  }
+
+  setGraph(graph) {
+    super.setGraph(graph)
+    this.maxForce = 200 * Math.sqrt(graph.size)
+    this.minTemp = 10*Math.sqrt(graph.size)
   }
 }
 
+class Frick{
+  computeAttractiveForce(pos1, pos2) {
+    const delta = subtract(pos2, pos1)
+    const dist_ = dist(pos1, pos2)
+    const attraction = dist_ / this.k
+    return mult(delta, attraction)
+  }
 
+  computeRepulsionForce(pos1,pos2) {
+    const delta = subtract(pos1, pos2)
+    const dist_ = magnitude(delta)
+    const force = this.k*this.k / dist_**2
+    return mult(delta,force)
+  }
+
+  avgPos() {
+    const sum_ = this.nodes.reduce((sum, u) => sum+u.pos, vec(0,0))
+    return mult(sum_,1/this.graph.size)
+  }
+
+  computeGravitationalForce(node) {
+    const towards = subtract(this.center, pos)
+    return mult(towards, this.gscale*node.mass)
+  }
+
+  constructor(graph) {
+    super.constructor(graph)
+    this.measureCentrality()
+  }
+
+  setGraph(graph) {
+    super.setGraph(graph)
+    this.measureCentrality()
+  }
+
+  measureCentrality() {
+    this.nodes.forEach(node => {
+      const dists = this.nodes.reduce((sum, u) => sum+this.graph.dist(node.label,u.label), 0)
+      node.mass = this.graph.size/dists
+    })
+  }
+
+  mass(node) {
+    let deg = this.graph.neighborsOf(node.label).size
+    return deg*(1+deg/2)
+  }
+
+
+  step() {
+    let center = this.avgPos()
+
+    
+  }
+}

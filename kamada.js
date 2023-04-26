@@ -8,7 +8,7 @@
  * 
  * Kamada, Tomihisa, and Satoru Kawai. "An algorithm for drawing general undirected graphs." (1989)
  */
-class KamadaKawai {
+class KamadaKawai extends Algo {
   // calculate a spring for each node pair based on graph theoretic distance
   // return a matrix m such that m[i][j] = {strength,length} of the spring between nodes i,j
   modelSprings() {
@@ -19,7 +19,7 @@ class KamadaKawai {
 
       const graphTheoreticDistance = this.graph.dist(i,j)
       const length = graphTheoreticDistance
-      const strength = 1/ (graphTheoreticDistance**2)
+      const strength = 1 / (graphTheoreticDistance**2)
 
       return {strength:strength, length:length}
     })
@@ -98,13 +98,12 @@ class KamadaKawai {
   }
 
   constructor(graph) {
-    this.graph = graph
-    this.nodes = graph.nodeList()
+    super(graph)
     this.energyThreshold = 1e-5
-    this.stableThreshold = 1e-2
+    this.stableThreshold = 1e-3
     this.stableCount = 0
-    this.stableCountThreshold = 5
-    this.previousMaxEnergy = Number.MAX_VALUE
+    this.stableCountThreshold = 25
+    this.previousMaxEnergy = Infinity
     this.maxVertexIters = 10 // maximum number of iterations to refine layout of one node
     //this.k = 10000
     this.springs = this.modelSprings()
@@ -123,11 +122,23 @@ class KamadaKawai {
     if (Math.abs(maxEnergy - this.previousMaxEnergy) < this.stableThreshold) this.stableCount++
     else this.stableCount = 0
 
+    if (this.stableCount >= this.stableCountThreshold) console.log("stable state reached")
     if (maxEnergy <= this.energyThreshold || this.stableCount >= this.stableCountThreshold) this.finished = true
 
     this.moveNode(maxEnergyNode)
 
     this.previousMaxEnergy = maxEnergy
+  }
+
+  reset() {
+    super.reset()
+    this.stableCount = 0
+    this.previousMaxEnergy = Infinity
+  }
+
+  setGraph(graph) {
+    super.setGraph(graph)
+    this.springs = this.modelSprings()
   }
   
 }

@@ -1,8 +1,12 @@
 let running = false
 
+let data = []
+
+let baseGraph = undefined
+
 // draw a graph in the given svg
 function draw(graph, svg) {
-  const nodes = graph.nodeList().map(n => n.pos)
+  const nodes = graph.nodeList()
   const edges = graph.edgeList()
 
   // fit the svg for the graph
@@ -11,7 +15,7 @@ function draw(graph, svg) {
   const height = maxY-minY
   
   // size nodes/edgestroke based on how wide the graph is
-  const nodeRadius = Math.sqrt((width*height)/(nodes.length*Math.PI))/10
+  const nodeRadius = Math.sqrt((width*height)/(nodes.length*Math.PI*20))
   const edgeThickness = nodeRadius / 5
 
   // position and scale viewbox according to graph node positions
@@ -24,8 +28,8 @@ function draw(graph, svg) {
     .join("path")
     .attr("class", "edge")
     .attr("d", ([node1, node2]) => {
-      const {x:x1, y:y1} = nodes[node1]
-      const {x:x2, y:y2} = nodes[node2]
+      const {x:x1, y:y1} = graph.node(node1).pos
+      const {x:x2, y:y2} = graph.node(node2).pos
       return d3.line()([[x1,y1], [x2,y2]])
     })
     .attr("fill", "none")
@@ -38,59 +42,42 @@ function draw(graph, svg) {
     .data(nodes)
     .join("circle")
     .attr("class", "node")
-    .attr("cx", node => node.x)
-    .attr("cy", node => node.y)
-    .attr("r", nodeRadius)
+    .attr("cx", node => node.pos.x)
+    .attr("cy", node => node.pos.y)
+    .attr("r", node => node.highlight ? nodeRadius*3: nodeRadius)
     .attr("fill", "rgb(123, 31, 162)")
     .raise()
 
-  let i = 0 // change node label to show node label
+  if (showLabels)
   svg.selectAll(".label")
     .data(nodes)
     .join("text")
     .attr("class", "label")
-    .text(() => i++)
-    .attr("x", node => node.x)
-    .attr("y", node => node.y+nodeRadius*0.8)
+    .text(n => n.label)
+    .attr("x", node => node.pos.x)
+    .attr("y", node => node.pos.y+nodeRadius*0.8)
     .style("text-anchor", "middle")
-    .style("font-size", nodeRadius*2)
+    .style("font-size", node => node.highlight ? nodeRadius*6 : nodeRadius*2)
     .style("fill", "#ffffff")
-    .on("click", console.log)
+    .on("click", (_,n) => console.log(n))
     .raise()
 
 }
-
-const nSlider = document.getElementById("n-slider")
-let N = parseInt(nSlider.value)
-
-nSlider.addEventListener('input', () => {
-  document.getElementById("n-label").innerText = `Number of vertices: ${nSlider.value}`
-})
-
-nSlider.addEventListener('change', () => {
-  N = parseInt(nSlider.value)
-  reset()
-})
 
 /**
  * 
  * @returns initial graph based on settings
  */
-function initGraph() {
-  let g = randomGraph(N, N+N, 0.001, "myseed")
-  g.computeDistances()
-  return g
-}
+function initGraph(graph) {
+  stopSimulation()
 
-/**
- * 
- * @returns list of algorithms to run
- */
-function mkAlgos() {
-  let algos = [HarelKoren,KamadaKawai]
-  let g = initGraph()
-  let data = algos.map(algo => new algo(g.copy()))
-  return data
+  baseGraph = graph
+  assignRandomLayout(baseGraph)
+  baseGraph.computeDistances()
+  data.forEach(algo => (algo.setGraph(baseGraph.copy()), algo.reset()))
+
+  mkSvgs()
+  updateBtns()
 }
 
 
@@ -100,32 +87,42 @@ function mkAlgos() {
 function mkSvgs() {
   let width = 300
 
-  let data = mkAlgos()
+  // clear out the algorithm displays
+  d3.selectAll(".algo-div").remove()
   
-  d3.select("body")
+  // containers for each algorithm display
+  let divs = d3.select("body")
     .selectAll(".algo-div")
     .data(data)
-    .join(
-      enter => {
-        let div = enter.append("div")
-          .attr("class", "algo-div")
-          .style("display", "inline-block")
-        div.append("h3").attr("class", "algo-label")
-          .text(d=>d.constructor.name)
-        div.append("svg")
-        .attr("class", "graph-view")
-        .attr("width", width)
-        .attr("height", width)
-        .style("border-style", "solid")
-        return div
-      },
-      update => update.each(function(algo) {
-          d3.select(this).select(".graph-view").data(algo)
-          d3.select(this).select(".algo-label").data(algo)
-      }),
-      exit => exit.remove()
-    )
+    .join("div")
     .attr("class", "algo-div")
+    .style("display", "inline-block")
+
+  // header
+  divs.append("h3").text(algo=>algo.constructor.name)
+
+  // append svg for drawing
+  divs.append("svg")
+    .attr("class", "graph-view")
+    .attr("width", width)
+    .attr("height", width)
+    .style("border-style", "solid")
+
+  // append ui for setting variables
+  divs.each(function(algo) {
+    let variableSettings = div()
+    if (algo instanceof Eades)
+      variableSettings = eadesUI(algo)
+    else if (algo instanceof HarelKoren)
+      variableSettings = harelKorenUI(algo)
+    else if (algo instanceof FruchReingold)
+      variableSettings = fruchReinUI(algo)
+
+    variableSettings.style.height = '100px'
+    variableSettings.style.overflowY = "scroll"
+    this.appendChild(variableSettings)
+  })
+      
 
   drawGraphs()
 }
@@ -149,6 +146,7 @@ function stepSimulation() {
   drawGraphs()
 
   if (allDone()) {
+    //drawGraphs()
     console.log("all done")
     running = false
     updateBtns()
@@ -186,9 +184,23 @@ function updateBtns() {
 
 function reset() {
   stopSimulation()
+  resetAlgos()
   mkSvgs()
   updateBtns()
 }
+
+/* function remake() {
+  stopSimulation()
+  mkSvgs()
+  updateBtns()
+} */
+
+function resetAlgos() {
+  data.forEach(algo => algo.reset())
+  drawGraphs()
+}
+
+document.body.prepend(graphMakerUI())
 
 const playBtn = document.getElementById("play-button")
 playBtn.addEventListener("click", startSimulation)
@@ -202,5 +214,43 @@ stopBtn.addEventListener("click", stopSimulation)
 const resetBtn = document.getElementById("reset-button")
 resetBtn.addEventListener("click", reset)
 
-reset()
+let showLabels = false
+const toggleLabelsBtn = document.getElementById("label-button")
+toggleLabelsBtn.addEventListener("click", ()=>showLabels=!showLabels)
+
+const algos = [Eades,FruchReingold,KamadaKawai,HarelKoren,Frick]
+//const selectedAlgos = [Eades] // algorithms to display
+
+function addAlgo(algo) {
+  data.push(new algo(baseGraph.copy()))
+}
+
+// construct buttons for each algorithm
+for (const algo of algos) {
+  let btn = document.createElement("button")
+  btn.innerText = algo.name
+  let enabled = data.find(algorithm => algorithm instanceof algo) != undefined
+  btn.style.backgroundColor = enabled ? 'lime' : 'pink'
+
+  // left clicking adds an algorithm
+  btn.onclick = () => {
+    addAlgo(algo)
+    btn.style.backgroundColor = 'lime'
+    reset()
+  }
+
+  // right clicking removes an algorithm
+  btn.oncontextmenu = (e) => {
+    e.preventDefault()
+    const idx = data.findIndex(algorithm => algorithm instanceof algo)
+    if (idx != -1) data.splice(idx,1)
+    if (data.findIndex(algorithm => algorithm instanceof algo) == -1) btn.style.backgroundColor = 'pink'
+    reset()
+  }
+  document.getElementById("algo-buttons").appendChild(btn)
+}
+
+initGraph(randomGraph(30, 30, 0.1))
+
+
 

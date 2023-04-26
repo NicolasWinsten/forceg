@@ -139,10 +139,12 @@ function allDone() {
   return data.every(algo => algo.finished)
 }
 
-function stepSimulation() {
+async function stepSimulation() {
+  let steps = []
   d3.selectAll(".graph-view")
-    .each(d => !d.finished && (d.step(), d.finished && console.log(d.constructor.name, "finished")))
+    .each(d => !d.finished && (steps.push(d.step()), d.finished && console.log(d.constructor.name, "finished")))
   
+  await Promise.all(steps)
   drawGraphs()
 
   if (allDone()) {
@@ -155,8 +157,8 @@ function stepSimulation() {
 
 function resumeSimulation() {
   if (running == false) return
-  stepSimulation()
-  requestAnimationFrame(resumeSimulation)
+  stepSimulation().then(() => requestAnimationFrame(resumeSimulation))
+  //requestAnimationFrame(resumeSimulation)
 }
 
 function startSimulation() {
@@ -218,7 +220,7 @@ let showLabels = false
 const toggleLabelsBtn = document.getElementById("label-button")
 toggleLabelsBtn.addEventListener("click", ()=>showLabels=!showLabels)
 
-const algos = [Eades,FruchReingold,KamadaKawai,HarelKoren,Frick]
+const algos = [Eades,FruchReingold,KamadaKawai,HarelKoren,ForceAtlas2]
 //const selectedAlgos = [Eades] // algorithms to display
 
 function addAlgo(algo) {

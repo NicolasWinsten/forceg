@@ -94,7 +94,7 @@ class HarelKoren extends Algo {
     return iterator
   }
 
-  step() {
+  async step() {
     let isPhaseFinished = !this.stepper()
     if (isPhaseFinished) {
       if (this.numSuperNodes == this.graph.size) {

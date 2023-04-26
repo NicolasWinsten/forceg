@@ -76,7 +76,7 @@ class Eades extends Algo {
       return Eades.computeRepulsionForce(pos1,pos2,this.charge**2)
   }
 
-  step() {
+  async step() {
     if (this.finished) throw `Iterator finished`
     applyForces(this.nodes, this.nodePairForce.bind(this), this.maxForce)
     this.finished = --this.iterations == 0
@@ -141,7 +141,7 @@ class FruchReingold extends Algo {
     return force // todo add speed modifier
   }
 
-  step() {
+  async step() {
     if (this.finished) throw `Iterator finished`
     applyForces(this.nodes, this.nodePairForce.bind(this), this.temp)
     this.temp *= this.cool

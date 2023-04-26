@@ -113,7 +113,7 @@ class KamadaKawai extends Algo {
 
   // find the node with the most potential energy and reduce its energy
   // by moving its position
-  step() {
+  async step() {
     if (this.finished) throw `KamadaKawaii refinement finished`
 
     let {node:maxEnergyNode,energy:maxEnergy} = this.highestEnergyVertex()

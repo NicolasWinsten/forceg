@@ -19,7 +19,7 @@ class KamadaKawai extends Algo {
 
       const graphTheoreticDistance = this.graph.dist(i,j)
       const length = graphTheoreticDistance
-      const strength = 1 / (graphTheoreticDistance**2)
+      const strength = 1 / graphTheoreticDistance**2
 
       return {strength:strength, length:length}
     })

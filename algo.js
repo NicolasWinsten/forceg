@@ -36,20 +36,14 @@ class ForceAtlas2 extends Algo {
 
   this.edges.forEach(([u,v]) => this.gg.addEdge(u,v))
 
-  this.worker = new graphologyLibrary.FA2Layout(this.gg, {
-    iterations: 1000
-  })
+  this.worker = new graphologyLibrary.FA2Layout(this.gg)
+  this.layout = graphologyLibrary.layoutForceAtlas2(this.gg)
  }
 
-  async step() {
-    this.worker.start()
+ 
 
-    await new Promise(resolve => {
-      setTimeout(() => {
-        this.worker.stop()
-        this.gg.forEachNode((n,attrs) => this.graph.node(n).pos = vec(attrs.x,attrs.y))
-        resolve()
-      }, 1)
-    })
+  async step() {
+    this.layout.step()
+    this.gg.forEachNode((n,attrs) => this.graph.node(n).pos = vec(attrs.x,attrs.y))
   }
 }

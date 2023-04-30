@@ -9,12 +9,34 @@ class Graph {
   #shortestPathsComputed = false
   #dist
 
-  // todo make graph.nodes an object mapping labels to nodes
+  /**
+   * 
+   * @param {graphology.UndirectedGraph} graphology copy graphology into this graph object
+   */
+  static fromGraphology(graphology) {
+    let g = new Graph()
+    // does not copy attributes
+    graphology.forEachNode(n => g.addNode(n))
+    graphology.forEachEdge(e => {
+      g.addEdge(
+        graphology.source(e), graphology.target(e)
+      )
+    })
+
+    return g
+  }
+
+
   constructor(n=0) {
     this.size = 0
     for (let i = 0; i < n; i++) this.addNode(i)
   }
 
+  /**
+   * 
+   * @param {*} a node label
+   * @param {*} b node label
+   */
   addEdge(a,b) {
     if (this.neighbors(a,b))
       throw `${a},${b} are already connected`
@@ -24,19 +46,39 @@ class Graph {
     this.#shortestPathsComputed = false
   }
 
+  /**
+   * 
+   * @param {*} a node label
+   * @param {*} b node label
+   * @returns 
+   */
   neighbors(a,b) {
     return this.#neighbors[a].has(b)
   }
 
+  /**
+   * 
+   * @param {*} a node label
+   * @returns set of a's neighbors
+   */
   neighborsOf(a) {
     return this.#neighbors[a]
   }
 
+  /**
+   * 
+   * @param {*} label node key 
+   */
   addNode(label) {
     let node =  {
       label: label,
-      pos: vec(0,0)
+      pos: vec(0,0),
+      get x() { return this.pos.x },
+      get y() { return this.pos.y },
+      set x(val) { this.pos.x = val},
+      set y(val) { this.pos.y = val},
     }
+
     this.#insertNode(node)
   }
 
@@ -48,6 +90,11 @@ class Graph {
     this.#shortestPathsComputed = false
   }
 
+  /**
+   * 
+   * @param {*} label node key 
+   * @returns node with given key
+   */
   node(label) {
     return this.#nodes[label]
   }
@@ -146,15 +193,13 @@ class Graph {
 
 /**
  * 
- * @param {number | number[][]} sizeOrEdgeList list of edges [x,y] where labels x,y < number of nodes
+ * @param {number} size number of nodes
  *  (or provide the number of nodes and generate random edges)
  * @param {number} width spatial width of area to place nodes in 
  * @param {number} density value 0 to 1 corresponding to the completeness of the generated edges
  * @returns {Graph} graph
  */
-function randomGraph(sizeOrEdgeList, width, density, seed) {
-  if (typeof sizeOrEdgeList === "number") {
-    const size = sizeOrEdgeList
+function randomGraph(size, width, density, seed) {
 
     let rng = new Math.seedrandom(seed)    
     let getRandomNode = () => Math.floor(rng()*size)
@@ -206,22 +251,6 @@ function randomGraph(sizeOrEdgeList, width, density, seed) {
     for (let i = 0; i < size; i++) graph.node(i).pos = randomPosition(width, rng)
 
     return graph
-  } else { // edge list is given
-    // verify that node labels in the given edge list form range(0,n)
-    // TODO allow labels generic and convert them to range
-    edges = sizeOrEdgeList
-    let labels = [...new Set(edges.flat())].sort()
-    for (let i = 0; i < labels.length; i++)
-      if (labels[i] != i) throw new Error("Given edge list is malformed")
-    
-    let graph = new Graph(labels.length)
-    for (const [u,v] of edges) {
-      graph.addEdge(u,v)
-      graph.node(u).pos = randomPosition(width, rng)
-      graph.node(v).pos = randomPosition(width, rng)
-    }
-    return graph
-  }
 }
 
 // TODO hand code shortest paths for a full grid
@@ -320,45 +349,35 @@ function tree(degree, maxDepth) {
 }
 
 function clusterGraph(numClusters, avgSize, connectedness) {
-  let graph = new Graph()
+  // create inital cluster graph
+  let g = graphologyLibrary.generators.random.clusters(graphology.UndirectedGraph, {
+    order: numClusters*avgSize,
+    size: numClusters*avgSize*(avgSize-1)/2,
+    clusters: numClusters,
+    clusterDensity: 1
+  })
 
-  let clusters = [] // array of arrays of cluster nodes
+  let graph = Graph.fromGraphology(g)
 
-  // create nodes for each cluster, connect them all, position them together
-  for (let i = 0; i < numClusters; i++) {
-    let labels = d3.range(graph.size, graph.size+avgSize)
-    let clusterPos = randomPosition(numClusters)
-    clusters.push(labels)
-    labels.forEach(l => {
-      graph.addNode(l)
-      graph.node(l).pos = add(clusterPos, randomPosition(1))
-    })
-    labels.forEachPair((u,v) => graph.addEdge(u,v))
-  }
+  let clusters = graphologyLibrary.components.connectedComponents(g)
+  let connectedNodes = clusters.pop()
+  // while unconnected components exist, connect one
+  // otherwise add edges randomly
+  for (let i = 0; i < connectedness*numClusters; i++)
+    if (clusters.length > 0) {
+      let c = clusters.pop()
+      let n1 = randItem(c)
+      let n2 = randItem(connectedNodes)
+      graph.addEdge(n1,n2)
+      connectedNodes = connectedNodes.concat(c)
+    } else {
+      let n1 = randItem(connectedNodes)
+      let n2 = randItem(connectedNodes)
+      while (n1 == n2 || graph.neighbors(n1,n2))
+        n2 = randItem(connectedNodes)
+      graph.addEdge(n1,n2)
+    }
 
-  // add minimum number of edges to create connected graph
-  let clusterPool = clusters.toSorted(() => (Math.random() > .5) ? 1 : -1)
-  let connectedClusters = [clusterPool.pop()]
-  while (clusterPool.length > 0) {
-    const cluster = clusterPool.pop()
-    const otherCluster = randItem(connectedClusters)
-    let node1 = randItem(cluster)
-    let node2 = randItem(otherCluster)
-    graph.addEdge(node1,node2)
-    connectedClusters.push(cluster)
-  }
-
-  // for each connectedness draw a random edge between each cluster per cluster
-  for (const cluster of clusters)
-  for (const _ of d3.range(connectedness)) {
-    let otherCluster = randItem(clusters)
-    while (cluster == otherCluster) otherCluster = randItem(clusters)
-
-    const node1 = randItem(cluster)
-    const node2 = randItem(otherCluster)
-    if (!graph.neighbors(node1,node2)) graph.addEdge(node1,node2)
-  }
-  
   return graph
 }
 

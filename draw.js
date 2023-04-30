@@ -117,6 +117,8 @@ function mkSvgs() {
       variableSettings = harelKorenUI(algo)
     else if (algo instanceof FruchReingold)
       variableSettings = fruchReinUI(algo)
+    else if (algo instanceof ForceAtlas2)
+      variableSettings = forceAtlas2UI(algo)
 
     variableSettings.style.height = '100px'
     variableSettings.style.overflowY = "scroll"
@@ -220,7 +222,7 @@ let showLabels = false
 const toggleLabelsBtn = document.getElementById("label-button")
 toggleLabelsBtn.addEventListener("click", ()=>showLabels=!showLabels)
 
-const algos = [Eades,FruchReingold,KamadaKawai,HarelKoren,ForceAtlas2]
+const algos = [Eades,FruchReingold,KamadaKawai,HarelKoren,ForceAtlas2,Gansner]
 //const selectedAlgos = [Eades] // algorithms to display
 
 function addAlgo(algo) {

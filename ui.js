@@ -1,7 +1,9 @@
 // i sincerely need to learn some ui library
 
-function div() {
-  return document.createElement("div")
+function div(...arguments) {
+  let d = document.createElement("div")
+  for (const el of arguments) d.appendChild(el)
+  return d
 }
 
 function mkSlider(label, range, value, onchange, type="float", exp=1) {
@@ -26,7 +28,7 @@ function mkSlider(label, range, value, onchange, type="float", exp=1) {
   let getValue = () => scale(slider.value)
 
   slider.oninput = () => {
-    let val = type === "float" ? getValue().toFixed(3) : getValue()
+    let val = type === "float" ? getValue().toFixed(6) : getValue()
     labelEl.innerText = `${label} ${val}`
   }
 
@@ -65,6 +67,18 @@ function mkRadio(labels, name, onchange) {
   return container
 }
 
+function mkCheckBox(label, initialState, onchange) {
+  let checkbox = document.createElement("input")
+  checkbox.setAttribute("type", "checkbox")
+  checkbox.checked = initialState
+  checkbox.onchange = () => onchange(checkbox.checked)
+
+  let labelEl = document.createElement("label")
+  labelEl.innerText = label
+
+  return div(checkbox, labelEl)
+}
+
 function eadesUI(eades) {
   let container = div()
   let elements = [
@@ -94,6 +108,17 @@ function fruchReinUI(fr) {
     mkSlider("k", [1, 1000], fr.k, x => fr.k = x),
     mkSlider("max force", [0, fr.maxForce*2], fr.maxForce, x => fr.maxForce = x),
     mkSlider("cool factor", [0.95, 0.999], fr.cool, x => fr.cool = x),
+  ]
+  elements.forEach(e => container.appendChild(e))
+  return container
+}
+
+function forceAtlas2UI(fa) {
+  let container = div()
+  let elements = [
+    mkSlider("gravity", [0, 10], fa.gravity, x => fa.gravity = x, "float", 2),
+    mkCheckBox("strong gravity mode", fa.strongGravityMode, t => fa.strongGravityMode = t),
+    mkCheckBox("linLog mode", fa.linLogMode, t => fa.linLogMode = t)
   ]
   elements.forEach(e => container.appendChild(e))
   return container
@@ -165,7 +190,7 @@ function clusterGraphUI() {
   let elements = [
     mkSlider("num", [1, 30], num, x => (num = x, mkGraph()), "int"),
     mkSlider("size", [1, 30], size, x => (size = x, mkGraph()), "int"),
-    mkSlider("connectedness", [0, 20], connectedness, x => (connectedness = x, mkGraph()), "int"),
+    mkSlider("connectedness", [1, 20], connectedness, x => (connectedness = x, mkGraph()), "int"),
   ]
   elements.forEach(e => container.appendChild(e))
   return {

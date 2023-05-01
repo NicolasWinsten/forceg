@@ -45,6 +45,17 @@ function mkSlider(label, range, value, onchange, type="float", exp=1) {
   return container
 }
 
+function mkTextInput(label, value, onenter) {
+  let labelEl = document.createElement("label")
+  labelEl.innerText = label
+
+  let textInput = document.createElement("input")
+  textInput.setAttribute("value", value)
+  textInput.onkeyup = (e) => e.key === "Enter" && onenter(textInput.value)
+
+  return div(textInput, labelEl)
+}
+
 function mkRadio(labels, name, onchange) {
   let container = div()
   labels.forEach((label,i) => {
@@ -198,9 +209,56 @@ function clusterGraphUI() {
   }
 }
 
+function subRedditGraphUI() {
+  let seedSub = "dataisbeautiful"
+  let depth = 5
+  let followProbability = 0.1
+  let maxChildren = 5
+
+  let mkGraph = () => initGraph(fromSubreddits(seedSub, depth, followProbability, maxChildren))
+
+  let container = div()
+  let elements = [
+    mkTextInput("seed subreddit", seedSub, s => (seedSub = s, mkGraph())),
+    mkSlider("depth", [1, 30], depth, x => (depth = x, mkGraph()), "int"),
+    mkSlider("follow chance", [0,1], followProbability, x => (followProbability = x, mkGraph()), "float", 2),
+    mkSlider("max children", [1,10], maxChildren, x => (maxChildren = x, mkGraph()), "int"),
+  ]
+  elements.forEach(e => container.appendChild(e))
+  return {
+    element: container, mkGraph: mkGraph
+  }
+}
+
+function lastFmGraphUI() {
+  let depth = 5
+  let followProbability = 0.1
+  let maxChildren = 5
+
+  let mkGraph = () => initGraph(fromLastFM(depth,followProbability,maxChildren))
+
+  let container = div()
+  let elements = [
+    mkSlider("depth", [1, 10], depth, x => (depth = x, mkGraph()), "int"),
+    mkSlider("follow chance", [0,1], followProbability, x => (followProbability = x, mkGraph()), "float", 2),
+    mkSlider("max children", [1,20], maxChildren, x => (maxChildren = x, mkGraph()), "int"),
+  ]
+  elements.forEach(e => container.appendChild(e))
+  return {
+    element: container, mkGraph: mkGraph
+  }
+}
+
 function graphMakerUI() {
 
-  let els = ({"random":randomGraphUI(), "mesh":gridGraphUI(), "tree":treeGraphUI(), "clustered":clusterGraphUI()})
+  let els = ({
+    "random":randomGraphUI(),
+    "mesh":gridGraphUI(),
+    "tree":treeGraphUI(),
+    "clustered":clusterGraphUI(),
+    "subreddits":subRedditGraphUI(),
+    "lastfm":lastFmGraphUI()
+  })
   Object.values(els).forEach(e => e.element.style.display = "none")
   els["random"].element.style.display = "block"
 
@@ -210,7 +268,7 @@ function graphMakerUI() {
   container.appendChild(legend)
   Object.values(els).forEach(e => container.appendChild(e.element))
 
-  let radio = mkRadio(["random", "mesh", "tree", "clustered"], "graphtype", type => {
+  let radio = mkRadio(Object.keys(els), "graphtype", type => {
     Object.values(els).forEach(e => e.element.style.display = "none")
     els[type].element.style.display = "block"
     els[type].mkGraph()

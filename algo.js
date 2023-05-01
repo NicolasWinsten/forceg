@@ -33,9 +33,6 @@ class ForceAtlas2 extends Algo {
   
  constructor(graph) {
   super(graph)
-  this.mkGraphologyInstance()
-  this.inferSettings()
-  this.mkIterator()
  }
 
   async step() {
@@ -70,6 +67,7 @@ class ForceAtlas2 extends Algo {
   setGraph(graph) {
     super.setGraph(graph)
     this.mkGraphologyInstance()
+    this.inferSettings()
     this.mkIterator()
   }
 
@@ -84,7 +82,8 @@ class ForceAtlas2 extends Algo {
 }
 
 /**
- * Gansner, Emden R., Yehuda Koren, and Stephen North. "Graph drawing by stress majorization." Graph Drawing: 12th International Symposium, GD 2004, New York, NY, USA
+ * Gansner, Emden R., Yehuda Koren, and Stephen North. "Graph drawing by stress majorization."
+ * Graph Drawing: 12th International Symposium, GD 2004, New York, NY, USA
  */
 class Gansner extends Algo {
 

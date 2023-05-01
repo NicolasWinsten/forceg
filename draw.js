@@ -10,9 +10,40 @@ let brushedLabels = new Set()
 // create a brush that we can attach to the .graph-view displays
 let brush = mkBrush()
 
+// flag for node label visibility
+let showLabels = false
+
 // base graph that the algorithms will be laying out.
 // a copy of this graph is handed to each algorithm
 let baseGraph = undefined
+
+let baseEdgeColor = "rgb(161, 190, 214)"
+let hotEdgeColor = "rgb(200,0,0)"
+let baseNodeColor = 'rgb(192, 147, 250)'
+let hotNodeColor = 'rgb(255,0,0)'
+let coldNodeColor = 'rgb(117, 193, 255)'
+let heatedColors = false
+
+// call edgeColorScale
+let edgeColorScale = undefined
+let nodeColorScale = undefined
+
+function mkColorScale() {
+  let heatScale = d3.scalePow()
+    .exponent(1.5)
+    .domain([0, baseGraph.diam()*0.5])
+    .range([hotNodeColor, coldNodeColor])
+
+  nodeColorScale = node => {
+    if (heatedColors) {
+      let minDist = baseGraph.diam()
+      brushedLabels.forEach(u => minDist = Math.min(minDist, baseGraph.dist(u,node)))
+      return heatScale(minDist)
+    } else {
+      return brushedLabels.has(node) ? hotNodeColor : baseNodeColor
+    }
+  }
+}
 
 // make a brush to attach to a .graph-view that
 // will pause the simulation and set brushedLabels to
@@ -65,8 +96,8 @@ function draw(graph, svg) {
 
   // fit the svg for the graph
   const [[minX, maxX], [minY, maxY]] = graph.getBounds()
-  const width = maxX-minX
-  const height = maxY-minY
+  const width = Math.max(maxX-minX,1)
+  const height = Math.max(maxY-minY,1)
   
   // size nodes/edgestroke based on how wide the graph is
   const nodeRadius = Math.sqrt((width*height)/(nodes.length*Math.PI*20))
@@ -87,7 +118,7 @@ function draw(graph, svg) {
       return d3.line()([[x1,y1], [x2,y2]])
     })
     .attr("fill", "none")
-    .attr("stroke", "black")
+    .attr("stroke", baseEdgeColor)
     .attr("stroke-width", edgeThickness)
 
     // draw a circle for each node
@@ -98,7 +129,8 @@ function draw(graph, svg) {
     .attr("cx", node => node.pos.x)
     .attr("cy", node => node.pos.y)
     .attr("r", node => node.highlight ? nodeRadius*3: nodeRadius)
-    .attr("fill", n => brushedLabels.has(n.label) ? 'rgb(255,0,0)' : 'rgb(123, 31, 162)')
+    //.attr("fill", n => brushedLabels.has(n.label) ? hotNodeColor : baseNodeColor)
+    .attr("fill", n => nodeColorScale(n.label))
     .raise()
 
   if (showLabels)
@@ -110,10 +142,18 @@ function draw(graph, svg) {
     .attr("x", node => node.pos.x)
     .attr("y", node => node.pos.y+nodeRadius*0.8)
     .style("text-anchor", "middle")
-    .style("font-size", node => node.highlight ? nodeRadius*6 : nodeRadius*2)
-    .style("fill", "#ffffff")
+    .style("font-size", node => {
+      let size = nodeRadius*2
+      //if (node.highlight) size *= 2
+      if (brushedLabels.has(node.label)) size *= 2
+      return size
+    })
+    .style("fill", "0")
     .on("click", (_,n) => console.log(n))
     .raise()
+
+  if (!showLabels)
+  svg.selectAll(".label").remove()
 }
 
 
@@ -124,6 +164,9 @@ function initGraph(graph) {
   assignRandomLayout(baseGraph)
   baseGraph.computeDistances()
   data.forEach(algo => (algo.setGraph(baseGraph.copy()), algo.reset()))
+
+  brushedLabels = new Set()
+  mkColorScale()
 
   mkSvgs()
   updateBtns()
@@ -268,10 +311,16 @@ stopBtn.addEventListener("click", stopSimulation)
 const resetBtn = document.getElementById("reset-button")
 resetBtn.addEventListener("click", reset)
 
-let showLabels = false
+
 const toggleLabelsBtn = document.getElementById("label-button")
 toggleLabelsBtn.addEventListener("click", () => {
   showLabels=!showLabels
+  drawGraphs()
+})
+
+const heatBtn = document.getElementById("heat-button")
+heatBtn.addEventListener("click", () => {
+  heatedColors = !heatedColors
   drawGraphs()
 })
 

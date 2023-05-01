@@ -1,8 +1,62 @@
+//// GLOBALS
+
+// flag for when the layout algorithms are running
 let running = false
 
 let data = []
 
+// store the labels of nodes the user has brushed over
+let brushedLabels = new Set()
+// create a brush that we can attach to the .graph-view displays
+let brush = mkBrush()
+
+// base graph that the algorithms will be laying out.
+// a copy of this graph is handed to each algorithm
 let baseGraph = undefined
+
+// make a brush to attach to a .graph-view that
+// will pause the simulation and set brushedLabels to
+// the labels of the nodes inside the brushed area
+function mkBrush() {
+  let wasRunning = running
+
+  return d3.brush()
+    .on("start", function() {
+      // the viewbox scaling makes the selection border to big
+      d3.select(this)
+        .select(".selection")
+        .style("stroke-width", 0)
+
+      wasRunning = running
+      if (running) stopSimulation()
+    })
+    .on("brush", function({selection}, algo) {
+      // get the labels of the nodes within the brushed area
+      const [[x0,y0], [x1,y1]] = selection
+      const labels = algo.nodes
+        .filter(n => n.x > x0 && n.x < x1 && n.y > y0 && n.y < y1)
+        .map(n => n.label)
+      brushedLabels = new Set([...labels])
+    })
+    .on("end", function() {
+      drawGraphs()
+      if (wasRunning) startSimulation()
+      // hide the brush selection box by giving it size zero
+      d3.select(this)
+        .select(".selection")
+        .attr("width", 0)
+        .attr("height", 0)
+    })
+    .handleSize(0)
+}
+
+// reset the brushes because the viewbox on the graph displays changes
+function updateBrushes() {
+  d3.selectAll(".graph-view")
+    .append("g")
+    .attr("class", "brush")
+    .call(brush)
+}
 
 // draw a graph in the given svg
 function draw(graph, svg) {
@@ -37,7 +91,6 @@ function draw(graph, svg) {
     .attr("stroke-width", edgeThickness)
 
     // draw a circle for each node
-  
   svg.selectAll(".node")
     .data(nodes)
     .join("circle")
@@ -45,7 +98,7 @@ function draw(graph, svg) {
     .attr("cx", node => node.pos.x)
     .attr("cy", node => node.pos.y)
     .attr("r", node => node.highlight ? nodeRadius*3: nodeRadius)
-    .attr("fill", "rgb(123, 31, 162)")
+    .attr("fill", n => brushedLabels.has(n.label) ? 'rgb(255,0,0)' : 'rgb(123, 31, 162)')
     .raise()
 
   if (showLabels)
@@ -61,13 +114,9 @@ function draw(graph, svg) {
     .style("fill", "#ffffff")
     .on("click", (_,n) => console.log(n))
     .raise()
-
 }
 
-/**
- * 
- * @returns initial graph based on settings
- */
+
 function initGraph(graph) {
   stopSimulation()
 
@@ -125,7 +174,6 @@ function mkSvgs() {
     this.appendChild(variableSettings)
   })
       
-
   drawGraphs()
 }
 
@@ -134,6 +182,8 @@ function drawGraphs() {
     .each(function(d) {
       draw(d.graph, d3.select(this))
     })
+
+  updateBrushes()
 }
 
 function allDone() {
@@ -220,7 +270,10 @@ resetBtn.addEventListener("click", reset)
 
 let showLabels = false
 const toggleLabelsBtn = document.getElementById("label-button")
-toggleLabelsBtn.addEventListener("click", ()=>showLabels=!showLabels)
+toggleLabelsBtn.addEventListener("click", () => {
+  showLabels=!showLabels
+  drawGraphs()
+})
 
 const algos = [Eades,FruchReingold,KamadaKawai,HarelKoren,ForceAtlas2,Gansner]
 //const selectedAlgos = [Eades] // algorithms to display

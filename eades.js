@@ -63,8 +63,7 @@ class Eades extends Algo {
     this.dampening = 0.06
     this.springLength = 1
     this.charge = 5
-    this.maxForce = 20*Math.sqrt(graph.size)
-    this.iterations = graph.size*10
+    this.maxForce = 100
   }
 
   nodePairForce(node1,node2) {
@@ -77,19 +76,15 @@ class Eades extends Algo {
   }
 
   async step() {
-    if (this.finished) throw `Iterator finished`
     applyForces(this.nodes, this.nodePairForce.bind(this), this.maxForce)
-    this.finished = --this.iterations == 0
   }
 
   reset() {
     super.reset()
-    this.iterations = this.graph.size*10
   }
 
   setGraph(graph) {
     super.setGraph(graph)
-    this.maxForce = 20*Math.sqrt(graph.size)
   } 
 
 }
@@ -124,11 +119,10 @@ class FruchReingold extends Algo {
   constructor(graph) {
     super(graph)
     this.k = 300
-    this.maxForce = 250 * Math.sqrt(graph.size)
+    this.maxForce = 250
     this.temp = this.maxForce
-    this.cool = 0.98
-    this.minTemp = 50*Math.sqrt(graph.size)
-    this.iterations = graph.size*10
+    this.cool = 0.99
+    this.minTemp = Math.sqrt(graph.size)
   }
 
   nodePairForce(node1,node2) {
@@ -142,23 +136,20 @@ class FruchReingold extends Algo {
   }
 
   async step() {
-    if (this.finished) throw `Iterator finished`
     applyForces(this.nodes, this.nodePairForce.bind(this), this.temp)
     this.temp *= this.cool
     this.temp = Math.max(this.temp, this.minTemp)
-    this.finished = --this.iterations == 0
   }
 
   reset() {
     super.reset()
     this.temp = this.maxForce
-    this.iterations = this.graph.size*10
   }
 
   setGraph(graph) {
     super.setGraph(graph)
-    this.maxForce = 200 * Math.sqrt(graph.size)
-    this.minTemp = 10*Math.sqrt(graph.size)
+    // this.maxForce = 200 * Math.sqrt(graph.size)
+    this.minTemp = Math.sqrt(graph.size)
   }
 }
 

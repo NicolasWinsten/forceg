@@ -1,4 +1,3 @@
-
 /**
  * Undirected graph
  */
@@ -7,7 +6,8 @@ class Graph {
   #edges = [] 
   #neighbors = {} // mapping of node labels to set of node labels (their neighbors)
   #shortestPathsComputed = false
-  #dist
+  #dist // matrix of distances between nodes
+  #diameter
 
   /**
    * 
@@ -24,6 +24,13 @@ class Graph {
     })
 
     return g
+  }
+
+  toGraphology() {
+    let gg = new graphology.Graph()
+    for (const n of this.nodeList()) gg.addNode(n.label)
+    for (const [n1,n2] of this.edgeList()) gg.addEdge(n1,n2)
+    return gg
   }
 
 
@@ -53,6 +60,8 @@ class Graph {
    * @returns 
    */
   neighbors(a,b) {
+    if (this.node(a) === undefined) throw `${a} undefined node`
+    if (this.node(b) === undefined) throw `${b} undefined node`
     return this.#neighbors[a].has(b)
   }
 
@@ -83,7 +92,8 @@ class Graph {
   }
 
   #insertNode(node) {
-    if (this.#nodes[node.label]) throw `node labeled ${label} already exists`
+    //console.log(node.label)
+    if (this.#nodes[node.label]) throw `node labeled ${node.label} already exists`
     this.#neighbors[node.label] = new Set()
     this.#nodes[node.label] = node
     this.size++
@@ -119,15 +129,15 @@ class Graph {
       newGraph.addEdge(u,v)
 
     newGraph.#dist = this.#dist
+    newGraph.#diameter = this.#diameter
     newGraph.#shortestPathsComputed = this.#shortestPathsComputed
 
     return newGraph
   }
 
   diam() {
-    const nodes = this.nodeList().map(n=>n.label)
-    return nodes.map(u => nodes.maxBy(v => this.#dist(u,v)))
-      .maxBy(x=>x)
+    if (!this.#shortestPathsComputed) this.computeDistances()
+    return this.#diameter
   }
 
   /**
@@ -170,6 +180,12 @@ class Graph {
   computeDistances() {
     this.#dist = shortestPaths(this)
     this.#shortestPathsComputed = true
+
+    // save diameter of graph
+    const nodes = this.nodeList().map(n=>n.label)
+    this.#diameter = nodes
+      .map(u => this.dist(u, nodes.maxBy(v => this.dist(u,v))))
+      .maxBy(x=>x)
   }
 
   /**
@@ -415,7 +431,7 @@ function assignRadialLayout(graph, radius) {
  * @param {Graph} graph 
  * @return matrix m such that m[u][v] is the distance between nodes u and v
  */
-function shortestPaths(graph) {
+function shortestPaths_(graph) {
   console.log("computing shortest paths")
   const nodeLabels = graph.nodeList().map(n => n.label)
   // dists[u][v] tracks the distance between u and v
@@ -431,6 +447,16 @@ function shortestPaths(graph) {
   if (dists[i][j] > dists[i][k] + dists[k][j])
     dists[i][j] = dists[i][k] + dists[k][j]
 
+  return dists
+}
+
+function shortestPaths(graph) {
+  let gg = graph.toGraphology()
+
+  let dists = {}
+  
+  for (const v of graph.nodeList())
+    dists[v.label] = graphologyLibrary.shortestPath.undirectedSingleSourceLength(gg,v.label)
   return dists
 }
 
@@ -465,3 +491,83 @@ function kcenters(graph, k) {
 
   return [...centers]
 }
+
+
+let subredditsGraph = new Graph()
+for (const [sub1, sub2] of subreddits) {
+  if (subredditsGraph.node(sub1) === undefined) subredditsGraph.addNode(sub1)
+  if (subredditsGraph.node(sub2) === undefined) subredditsGraph.addNode(sub2)
+  if (!subredditsGraph.neighbors(sub1,sub2) && sub1 != sub2) subredditsGraph.addEdge(sub1,sub2)
+}
+
+let lastFmGraph = new Graph()
+for (const [sub1, sub2] of lastfm) {
+  if (lastFmGraph.node(sub1) === undefined) lastFmGraph.addNode(sub1)
+  if (lastFmGraph.node(sub2) === undefined) lastFmGraph.addNode(sub2)
+  if (!lastFmGraph.neighbors(sub1,sub2) && sub1 != sub2) lastFmGraph.addEdge(sub1,sub2)
+}
+
+/**
+ * 
+ * @param {Graph} graph 
+ * @param {*} startNode starting node label 
+ * @param {number} maxDepth 
+ * @param {number} followProbability chance that a node will be added to the 
+ * @returns list of node labels found
+ */
+function bfs(graph, startNode, maxDepth, followProbability=1, maxChildren=Infinity) {
+  let q = [{node:startNode, depth:0}]
+  let visited = new Set()
+
+  let foundNodes = []
+
+  while (q.length > 0) {
+    const {node,depth} = q.shift()
+    visited.add(node)
+    foundNodes.push(node)
+
+    //let chance = Math.pow(followProbability, depth)
+    let chance = followProbability
+    console.log(chance)
+    if (chance > Math.random() || node == startNode) {
+      let children = [...graph.neighborsOf(node)]
+      console.log(node, "has", children.length, "children", children)
+      children = children.slice(0,maxChildren)
+      if (depth < maxDepth)
+        for (const child of children)
+          if (!visited.has(child))
+            q.push({node:child, depth:depth+1})
+    }
+  }
+
+  return foundNodes
+}
+
+function fromSubreddits(seedSub, maxDepth, followProbability, maxChildren) {
+  let g = new Graph()
+
+  // let subs = bfs(subredditsGraph, seedSub, maxDepth, followProbability)
+  let subs = bfs(subredditsGraph, seedSub, maxDepth, followProbability, maxChildren)
+  // remove duplicates
+  // why are there duplicates?
+  subs = [...new Set(subs)]
+
+  subs.forEach(sub => g.addNode(sub))
+
+  subs.forEachPair((sub1,sub2) => subredditsGraph.neighbors(sub1,sub2) && g.addEdge(sub1,sub2))
+  return g
+}
+
+function fromLastFM(maxDepth, followProbability, neighborsToVisit) {
+  let g = new Graph()
+  
+  let startNode = randItem(lastFmGraph.nodeList()).label
+  let nodes = bfs(lastFmGraph, startNode, maxDepth, followProbability, neighborsToVisit)
+  nodes = [...new Set(nodes)]
+
+  nodes.forEach(sub => g.addNode(sub))
+
+  nodes.forEachPair((sub1,sub2) => lastFmGraph.neighbors(sub1,sub2) && g.addEdge(sub1,sub2))
+  return g
+}
+

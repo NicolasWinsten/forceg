@@ -13,12 +13,11 @@ class HarelKoren extends Algo {
 
   constructor(graph) {
     super(graph)
-    this.localRadius = 7  // radius of local neighborhoods
+    this.localRadius = Math.min(7,graph.diam())  // radius of local neighborhoods
     this.iterations = 5   // iterations to run the local layout refiner on each stage
     this.coarseRate = 3   // ratio of supernodes between each stage
     this.minGranularity = Math.min(10, graph.size) // initial number of supernodes
     this.numSuperNodes = this.minGranularity // current number of supernodes
-    this.finished = false
     this.kamada = new KamadaKawai(this.graph)
     this.noise = 0.1
     //this.kamada.energyThreshold = 5000
@@ -31,23 +30,23 @@ class HarelKoren extends Algo {
     // choose the supernodes
     const lastPhase = this.numSuperNodes == this.graph.size
     let centers
-    let radius
+    let maxMinDist
     if (lastPhase) {
       centers = this.nodes
-      radius = this.localRadius
+      maxMinDist = 1
     } else {
       centers = kcenters(this.graph, this.numSuperNodes)
       // find the center with the largest minimum distance to another center
       // multiply it by the base radius to determine the size of the supernode's neighborhood for the phase
-      radius = centers
+      maxMinDist = centers
         .map(u => centers.filter(v => u!=v).map(v => this.graph.dist(u.label,v.label)).minBy(x=>x))
-        .maxBy(x=>x)*this.localRadius
+        .maxBy(x=>x)
       
       // highlight the supernodes for drawing
       centers.forEach(c => c.highlight = true)
     }
     
-    let shareNeighborhood = (u,v) => this.graph.dist(u.label,v.label) <= radius
+    let shareNeighborhood = (u,v) => this.graph.dist(u.label,v.label) <= maxMinDist*this.localRadius
 
     // map centers to the other centers in their neighborhood
     const neighborhoods = {}
@@ -68,8 +67,6 @@ class HarelKoren extends Algo {
       //const maximalLocalEnergyNode = centers.maxBy(u => this.kamada.computeEnergy(u)) // TODO implement this part with priority queue
       const maximalLocalEnergyNode = q.top()
       // TODO end this stage if the maxenergy is below threshold
-      const energy = q.topPriority()
-      //if (Math.abs(energy) < this.kamada.energyThreshold) return false
 
       this.kamada.moveNode(maximalLocalEnergyNode)
 
@@ -87,7 +84,7 @@ class HarelKoren extends Algo {
             v.highlight = false
           }
         }
-        return false // false means phase is finished
+        return lastPhase // false means phase is finished
       } else return true
     }
 
@@ -97,13 +94,8 @@ class HarelKoren extends Algo {
   async step() {
     let isPhaseFinished = !this.stepper()
     if (isPhaseFinished) {
-      if (this.numSuperNodes == this.graph.size) {
-        this.finished = true
-      }
-      else {
-        this.numSuperNodes = Math.min(this.graph.size,this.coarseRate*this.numSuperNodes)
-        this.stepper = this.newPhase()
-      }
+      this.numSuperNodes = Math.min(this.graph.size,this.coarseRate*this.numSuperNodes)
+      this.stepper = this.newPhase()
     }
   }
 

@@ -42,11 +42,12 @@ class ForceAtlas2 extends Algo {
 
   mkGraphologyInstance() {
     // copy the graph into a graphology instance to get access to forceAtlas2 layout implementation
-    this.gg = new graphology.UndirectedGraph()
-    this.nodes.forEach(n => {
-      this.gg.addNode(n.label, n.pos)
-    })
-    this.edges.forEach(([u,v]) => this.gg.addEdge(u,v))
+    // this.gg = new graphology.UndirectedGraph()
+    // this.nodes.forEach(n => {
+    //   this.gg.addNode(n.label, n.pos)
+    // })
+    // this.edges.forEach(([u,v]) => this.gg.addEdge(u,v))
+    this.gg = this.graph.toGraphology()
   }
 
   mkIterator() {

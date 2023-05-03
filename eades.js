@@ -118,7 +118,7 @@ class FruchReingold extends Algo {
 
   constructor(graph) {
     super(graph)
-    this.k = 300
+    this.k = 100
     this.maxForce = 250
     this.temp = this.maxForce
     this.cool = 0.99

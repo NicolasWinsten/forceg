@@ -27,8 +27,8 @@ class Graph {
   }
 
   toGraphology() {
-    let gg = new graphology.Graph()
-    for (const n of this.nodeList()) gg.addNode(n.label)
+    let gg = new graphology.UndirectedGraph()
+    for (const n of this.nodeList()) gg.addNode(n.label, n)
     for (const [n1,n2] of this.edgeList()) gg.addEdge(n1,n2)
     return gg
   }
@@ -425,30 +425,6 @@ function assignRadialLayout(graph, radius) {
   console.log("radiual layout")
 }
 
-/**
- * Compute shortest distances for unweighted,undirected graph
- * using FloydWarshall
- * @param {Graph} graph 
- * @return matrix m such that m[u][v] is the distance between nodes u and v
- */
-function shortestPaths_(graph) {
-  console.log("computing shortest paths")
-  const nodeLabels = graph.nodeList().map(n => n.label)
-  // dists[u][v] tracks the distance between u and v
-  let dists = matrix(nodeLabels, (u,v) => {
-    if (u == v) return 0
-    if (graph.neighbors(u,v)) return 1
-    return Infinity
-  })
-
-  for (const k of nodeLabels)
-  for (const i of nodeLabels)
-  for (const j of nodeLabels)
-  if (dists[i][j] > dists[i][k] + dists[k][j])
-    dists[i][j] = dists[i][k] + dists[k][j]
-
-  return dists
-}
 
 function shortestPaths(graph) {
   let gg = graph.toGraphology()
@@ -526,17 +502,16 @@ function bfs(graph, startNode, maxDepth, followProbability=1, maxChildren=Infini
     visited.add(node)
     foundNodes.push(node)
 
-    //let chance = Math.pow(followProbability, depth)
-    let chance = followProbability
+    //TODO have numVertices as an argument
+    let chance = 1
     console.log(chance)
     if (chance > Math.random() || node == startNode) {
-      let children = [...graph.neighborsOf(node)]
-      console.log(node, "has", children.length, "children", children)
-      children = children.slice(0,maxChildren)
+      let children = [...graph.neighborsOf(node)].filter(n => !visited.has(n))
+      children = children.slice(0,children.length*followProbability+1).slice(0,maxChildren)
       if (depth < maxDepth)
         for (const child of children)
-          if (!visited.has(child))
-            q.push({node:child, depth:depth+1})
+            if (!visited.has(child))
+              q.push({node:child, depth:depth+1})
     }
   }
 

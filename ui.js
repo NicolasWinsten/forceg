@@ -105,7 +105,7 @@ function eadesUI(eades) {
 function harelKorenUI(hk) {
   let container = div()
   let elements = [
-    mkSlider("neighborhood radius", [1,30], hk.localRadius, x => hk.localRadius = x, "int"),
+    mkSlider("neighborhood radius", [1,hk.graph.diam()], hk.localRadius, x => hk.localRadius = x, "int"),
     mkSlider("rounds", [1,10], hk.iterations, x => hk.iterations = x, "int"),
     mkSlider("coarsening rate", [2, 10], hk.coarseRate, x => hk.coarseRate = x, "int"),
   ]
@@ -211,9 +211,9 @@ function clusterGraphUI() {
 
 function subRedditGraphUI() {
   let seedSub = "dataisbeautiful"
-  let depth = 5
-  let followProbability = 0.1
-  let maxChildren = 5
+  let depth = 10
+  let followProbability = 0.001
+  let maxChildren = 3
 
   let mkGraph = () => initGraph(fromSubreddits(seedSub, depth, followProbability, maxChildren))
 
@@ -221,7 +221,7 @@ function subRedditGraphUI() {
   let elements = [
     mkTextInput("seed subreddit", seedSub, s => (seedSub = s, mkGraph())),
     mkSlider("depth", [1, 30], depth, x => (depth = x, mkGraph()), "int"),
-    mkSlider("follow chance", [0,1], followProbability, x => (followProbability = x, mkGraph()), "float", 2),
+    mkSlider("follow chance", [0,1], followProbability, x => (followProbability = x, mkGraph()), "float", 4),
     mkSlider("max children", [1,10], maxChildren, x => (maxChildren = x, mkGraph()), "int"),
   ]
   elements.forEach(e => container.appendChild(e))
@@ -249,6 +249,26 @@ function lastFmGraphUI() {
   }
 }
 
+//https://www.pnas.org/doi/pdf/10.1073/pnas.122653799
+function girvanNewmanGraphUI() {
+  let zOut = 4
+
+  let mkGraph = () => initGraph(
+    Graph.fromGraphology(
+      graphologyLibrary.generators.random.girvanNewman(graphology.UndirectedGraph, {zOut:zOut})
+    )
+  )
+
+  let container = div()
+  let elements = [
+    mkSlider("zOut", [1, 10], zOut, x => (zOut = x, mkGraph()), "int"),
+  ]
+  elements.forEach(e => container.appendChild(e))
+  return {
+    element: container, mkGraph: mkGraph
+  }
+}
+
 function graphMakerUI() {
 
   let els = ({
@@ -257,7 +277,8 @@ function graphMakerUI() {
     "tree":treeGraphUI(),
     "clustered":clusterGraphUI(),
     "subreddits":subRedditGraphUI(),
-    "lastfm":lastFmGraphUI()
+    "lastfm":lastFmGraphUI(),
+    "girvan newman":girvanNewmanGraphUI()
   })
   Object.values(els).forEach(e => e.element.style.display = "none")
   els["random"].element.style.display = "block"

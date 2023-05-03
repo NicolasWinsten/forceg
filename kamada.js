@@ -100,40 +100,26 @@ class KamadaKawai extends Algo {
   constructor(graph) {
     super(graph)
     this.energyThreshold = 1e-5
-    this.stableThreshold = 1e-3
-    this.stableCount = 0
-    this.stableCountThreshold = 25
-    this.previousMaxEnergy = Infinity
     this.maxVertexIters = 10 // maximum number of iterations to refine layout of one node
     //this.k = 10000
     this.springs = this.modelSprings()
     this.discriminator = (u,v)=>true  // function to determine if node v should be considered when computing the energy of node u
-    this.finished = false
   }
 
   // find the node with the most potential energy and reduce its energy
   // by moving its position
   async step() {
-    if (this.finished) throw `KamadaKawaii refinement finished`
-
     let {node:maxEnergyNode,energy:maxEnergy} = this.highestEnergyVertex()
     // find the highest energy vertex    
 
-    if (Math.abs(maxEnergy - this.previousMaxEnergy) < this.stableThreshold) this.stableCount++
-    else this.stableCount = 0
-
-    if (this.stableCount >= this.stableCountThreshold) console.log("stable state reached")
-    if (maxEnergy <= this.energyThreshold || this.stableCount >= this.stableCountThreshold) this.finished = true
+    //if (maxEnergy <= this.energyThreshold || this.stableCount >= this.stableCountThreshold) this.finished = true
 
     this.moveNode(maxEnergyNode)
 
-    this.previousMaxEnergy = maxEnergy
   }
 
   reset() {
     super.reset()
-    this.stableCount = 0
-    this.previousMaxEnergy = Infinity
   }
 
   setGraph(graph) {
